@@ -1,11 +1,10 @@
 import boto3
 import os
 import json
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
+#load_dotenv()
 
-load_dotenv()
-
-region = os.getenv("AWS_REGION", "us-east-2")
+region = os.getenv("MY_REG_AWS", "us-east-2")
 
 # Cliente para KB (RAG)
 kb_client = boto3.client("bedrock-agent-runtime", region_name=region)
@@ -32,7 +31,7 @@ def query_kb(knowledge_base_id, query_text, max_results=5):
 def generate_answer_from_fragments(fragments, user_query, model_id=None):
     if not model_id:
         model_id = os.getenv(
-            "BEDROCK_GEN_MODEL_ID",
+            "INFERENCE_PROFILE_ARN",
             "us.amazon.nova-lite-v1:0"
         )
 

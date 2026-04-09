@@ -1,14 +1,17 @@
 import json
 import os
-from backend_lambda.bedrock_client import query_kb, generate_answer_from_fragments
-from dotenv import load_dotenv
+# from backend_lambda.bedrock_client import query_kb, generate_answer_from_fragments
+from bedrock_client import query_kb, generate_answer_from_fragments
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 KNOWLEDGE_BASE_ID = os.getenv("KB_ID")
 
 def lambda_handler(event, context):
-    user_query = event.get("query", "")
+    # --- Soporte para JSON plano ---
+    # event puede ser { "query": "..." } directamente
+    user_query = event.get("query")
     
     if not user_query:
         return {
