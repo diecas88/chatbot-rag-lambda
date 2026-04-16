@@ -69,3 +69,64 @@ Pregunta: {user_query}
     result = json.loads(response["body"].read())
 
     return result["output"]["message"]["content"][0]["text"]
+
+def detect_intent_and_entities(user_query):
+    
+    model_id = os.getenv(
+        "INFERENCE_PROFILE_ARN",
+        "us.amazon.nova-lite-v1:0"
+    )
+
+    prompt = f"""
+Clasifica la siguiente consulta y extrae equipos si aplica.
+
+Responde SOLO en JSON válido con este formato:
+
+{{
+  "intent": "prediction" o "rag",
+  "home": "equipo_local" o null,
+  "away": "equipo_visitante" o null
+}}
+
+Reglas:
+- "prediction" si es pronóstico o partido
+- "rag" si es pregunta general
+- Si no hay equipos claros → null
+
+Consulta: "{user_query}"
+"""
+
+    body = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"text": prompt}]
+            }
+        ],
+        "inferenceConfig": {
+            "maxTokens": 100,
+            "temperature": 0
+        }
+    }
+
+    response = model_client.invoke_model(
+        modelId=model_id,
+        contentType="application/json",
+        body=json.dumps(body)
+    )
+
+    result = json.loads(response["body"].read())
+    text = result["output"]["message"]["content"][0]["text"]
+
+    # 🔥 intentar parsear JSON del modelo
+    try:
+        parsed = json.loads(text)
+        return parsed
+    except:
+        # fallback
+        return {
+            "intent": "rag",
+            "home": None,
+            "away": None
+        }
+
