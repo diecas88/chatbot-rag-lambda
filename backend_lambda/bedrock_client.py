@@ -1,44 +1,106 @@
 # bedrock_client.py
 
 import boto3
+from io import StringIO
 import os
 import json
-#from dotenv import load_dotenv
-#load_dotenv()
+import pandas as pd
 
+s3 = boto3.client("s3")
+BUCKET = os.getenv("MY_BUCKET_NAME")
+KEY = "data/ranking_fifa.csv"
 region = os.getenv("MY_REG_AWS", "us-east-2")
 
-# Cliente para KB (RAG)
 kb_client = boto3.client("bedrock-agent-runtime", region_name=region)
-
-# Cliente para generación de texto
 model_client = boto3.client("bedrock-runtime", region_name=region)
 
+# ALIAS MULTIIDIOMA
+ALIASES = {
+    "brasil": "brazil",
+    "alemania": "germany",
+    "corea del sur": "south korea",
+    "corea": "south korea",
+    "eeuu": "united states",
+    "usa": "united states",
+    "estados unidos": "united states",
+    "inglaterra": "england",
+    "holanda": "netherlands",
+    "paises bajos": "netherlands",
+    "suiza": "switzerland",
+    "japon": "japan",
+    "mexico": "mexico",
+    "argentina": "argentina",
+    "colombia": "colombia",
+    "peru": "peru",
+    "uruguay": "uruguay",
+    "paraguay": "paraguay",
+    "chile": "chile",
+    "ecuador": "ecuador",
+    "espana": "spain",
+    "francia": "france",
+    "portugal": "portugal",
+    "italia": "italy",
+    "belgica": "belgium",
+    "croacia": "croatia",
+    "serbia": "serbia",
+    "dinamarca": "denmark",
+    "suecia": "sweden",
+    "noruega": "norway",
+    "polonia": "poland",
+    "rusia": "russia",
+    "turquia": "turkey",
+    "iran": "iran",
+    "arabia saudita": "saudi arabia",
+    "qatar": "qatar",
+    "australia": "australia",
+    "nueva zelanda": "new zealand",
+    "sudafrica": "south africa",
+    "costa rica": "costa rica"
+}
+
+def load_teams():
+    obj = s3.get_object(Bucket=BUCKET, Key=KEY)
+    df = pd.read_csv(StringIO(obj["Body"].read().decode("utf-8")))
+    
+    return df["country"].dropna().str.strip().str.lower().unique().tolist()
+
+VALID_TEAMS = load_teams()
+
+def normalize_team(team):
+    if not team:
+        return None
+
+    team = team.strip().lower()
+
+    # aplicar alias primero
+    team = ALIASES.get(team, team)
+
+    for valid in VALID_TEAMS:
+        if team == valid:
+            return valid
+
+        if team in valid or valid in team:
+            return valid
+
+    return None
 
 def query_kb(knowledge_base_id, query_text, max_results=5):
     response = kb_client.retrieve(
         knowledgeBaseId=knowledge_base_id,
-        retrievalQuery={
-            "text": query_text
-        }
+        retrievalQuery={"text": query_text}
     )
 
-    results = [
+    return [
         item["content"]["text"]
         for item in response.get("retrievalResults", [])[:max_results]
     ]
 
-    return results
-
 def generate_answer_from_fragments(fragments, user_query, model_id=None):
     if not model_id:
-        model_id = os.getenv(
-            "INFERENCE_PROFILE_ARN",
-            "us.amazon.nova-lite-v1:0"
-        )
+        model_id = os.getenv("INFERENCE_PROFILE_ARN", "us.amazon.nova-lite-v1:0")
 
     prompt = f"""
-Usa la siguiente información para responder la pregunta de forma clara y en español:
+Usa la siguiente información para responder en español:
 
 {''.join(fragments)}
 
@@ -46,20 +108,8 @@ Pregunta: {user_query}
 """
 
     body = {
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
-        ],
-        "inferenceConfig": {
-            "maxTokens": 500,
-            "temperature": 0.5
-        }
+        "messages": [{"role": "user", "content": [{"text": prompt}]}],
+        "inferenceConfig": {"maxTokens": 500, "temperature": 0.5}
     }
 
     response = model_client.invoke_model(
@@ -69,114 +119,27 @@ Pregunta: {user_query}
     )
 
     result = json.loads(response["body"].read())
-
     return result["output"]["message"]["content"][0]["text"]
 
 def detect_intent_and_entities(user_query):
-    
-    model_id = os.getenv(
-        "INFERENCE_PROFILE_ARN",
-        "us.amazon.nova-lite-v1:0"
-    )
+
+    model_id = os.getenv("INFERENCE_PROFILE_ARN", "us.amazon.nova-lite-v1:0")
 
     prompt = f"""
-Eres un clasificador de intención.
+Responde SOLO en JSON válido:
 
-REGLAS ESTRICTAS:
-
-- SOLO puedes elegir entre:
-  - "prediction"
-  - "rag"
-  - null
-
-- NUNCA hagas predicciones numéricas
-- NUNCA inventes probabilidades
-- NUNCA generes análisis deportivo
-
-REGLAS CLAVE:
-- Si el texto contiene "X vs Y" pero habla en pasado pidiendo datos historicos → "rag"
-- Si el texto contiene "X vs Y" → SIEMPRE "prediction"
-- Si el texto contiene "X contra Y" → SIEMPRE "prediction"
-- Si hay dos equipos de fútbol → "prediction"
-- Si el usuario pide ganador o resultado → "prediction"
-- Si el usuario pide datos historicos → "rag"
-- Todo lo demás → "rag"
-
-IMPORTANTE:
-Tu trabajo es SOLO clasificar intención, NO responder la pregunta.
-
-EJEMPLOS:
-
-Input: Cual fue el resultado de Argentina vs Francia en el mundial de 2022?
-Output:
 {{
-  "intent": "rag",
-  "home": "Argentina",
-  "away": "Francia"
-}}
-
-Input: Colombia vs Portugal
-Output:
-{{
-  "intent": "prediction",
-  "home": "Colombia",
-  "away": "Portugal"
-}}
-
-Input: Colombia contra Portugal
-Output:
-{{
-  "intent": "prediction",
-  "home": "Colombia",
-  "away": "Portugal"
-}}
-
-Input: Colombia aganist Portugal
-Output:
-{{
-  "intent": "prediction",
-  "home": "Colombia",
-  "away": "Portugal"
-}}
-
-Input: who wins argentina vs brazil
-Output:
-{{
-  "intent": "prediction",
-  "home": "Argentina",
-  "away": "Brazil"
-}}
-
-Input: who won world cup 2014
-Output:
-{{
-  "intent": "rag",
-  "home": null,
-  "away": null
-}}
-
-Input: colombia world cup history
-Output:
-{{
-  "intent": "rag",
-  "home": null,
-  "away": null
+  "intent": "prediction" | "rag",
+  "home": string | null,
+  "away": string | null
 }}
 
 Consulta: "{user_query}"
 """
 
     body = {
-        "messages": [
-            {
-                "role": "user",
-                "content": [{"text": prompt}]
-            }
-        ],
-        "inferenceConfig": {
-            "maxTokens": 100,
-            "temperature": 0
-        }
+        "messages": [{"role": "user", "content": [{"text": prompt}]}],
+        "inferenceConfig": {"maxTokens": 100, "temperature": 0}
     }
 
     response = model_client.invoke_model(
@@ -188,65 +151,67 @@ Consulta: "{user_query}"
     result = json.loads(response["body"].read())
     text = result["output"]["message"]["content"][0]["text"]
 
-    # intentar parsear JSON del modelo
+    # DEBUG
+    print("RAW LLM:", text)
+
     try:
+        text = text.strip()
+        # limpiar markdown si viene con ```json
+        if text.startswith("```"):
+            text = text.replace("```json", "").replace("```", "").strip()
+
         parsed = json.loads(text)
-        return parsed
+        print("PARSED:", parsed)
     except:
-        # fallback
+        print("JSON ERROR")
+        return {"intent": "rag", "home": None, "away": None}
+
+    intent = parsed.get("intent")
+    home = parsed.get("home")
+    away = parsed.get("away")
+
+    print("INTENT:", intent)
+    print("HOME RAW:", home)
+    print("AWAY RAW:", away)
+
+    home_valid = normalize_team(home)
+    away_valid = normalize_team(away)
+
+    print("HOME VALID:", home_valid)
+    print("AWAY VALID:", away_valid)
+
+    if intent == "prediction":
+        if not home_valid or not away_valid:
+            print("FALLÓ VALIDACIÓN RAG")
+            return {"intent": "rag", "home": None, "away": None}
+
         return {
-            "intent": "rag",
-            "home": None,
-            "away": None
+            "intent": "prediction",
+            "home": home_valid,
+            "away": away_valid
         }
 
+    return {"intent": "rag", "home": None, "away": None}
+
 def generate_prediction_explanation(result, user_query, model_id=None):
-    import os
-    import json
 
     if not model_id:
-        model_id = os.getenv(
-            "INFERENCE_PROFILE_ARN",
-            "us.amazon.nova-lite-v1:0"
-        )
+        model_id = os.getenv("INFERENCE_PROFILE_ARN", "us.amazon.nova-lite-v1:0")
 
     prompt = f"""
-Eres un analista de fútbol.
+Explica esta predicción:
 
-Explica la siguiente predicción de manera clara, breve y en español.
+Local: {result["home_team"]}
+Visitante: {result["away_team"]}
+Probabilidades: {result["probabilidades"]}
+Goles esperados: {result["prediccion_goles"]}
 
-DATOS (NO LOS CAMBIES NI INVENTES):
-- Equipo local: {result["home_team"]}
-- Equipo visitante: {result["away_team"]}
-- Probabilidad local: {result["probabilidades"]["home_win"]}
-- Probabilidad empate: {result["probabilidades"]["draw"]}
-- Probabilidad visitante: {result["probabilidades"]["away_win"]}
-- Goles esperados local: {result["prediccion_goles"]["home"]}
-- Goles esperados visitante: {result["prediccion_goles"]["away"]}
-
-REGLAS IMPORTANTES:
-- NO inventes números nuevos
-- NO cambies los valores
-- SOLO explica los datos
-- Sé natural y fácil de entender
-
-Pregunta del usuario:
-{user_query}
+Pregunta: {user_query}
 """
 
     body = {
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"text": prompt}
-                ]
-            }
-        ],
-        "inferenceConfig": {
-            "maxTokens": 300,
-            "temperature": 0.3  
-        }
+        "messages": [{"role": "user", "content": [{"text": prompt}]}],
+        "inferenceConfig": {"maxTokens": 300, "temperature": 0.3}
     }
 
     response = model_client.invoke_model(
@@ -256,5 +221,4 @@ Pregunta del usuario:
     )
 
     result_llm = json.loads(response["body"].read())
-
     return result_llm["output"]["message"]["content"][0]["text"]
