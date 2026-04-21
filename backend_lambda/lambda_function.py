@@ -1,16 +1,17 @@
+# lambda_function.py 
+
 import json
 import os
-
-from bedrock_client import query_kb, generate_answer_from_fragments, detect_intent_and_entities
+from bedrock_client import query_kb, generate_answer_from_fragments, detect_intent_and_entities, generate_prediction_explanation
 from predict import predict_match
 
 import boto3
 
 KNOWLEDGE_BASE_ID = os.getenv("KB_ID")
 
-# -------------------------------
-# 🧠 Lambda handler
-# -------------------------------
+
+# Lambda handler
+
 def lambda_handler(event, context):
     
     user_query = event.get("query")
@@ -21,18 +22,17 @@ def lambda_handler(event, context):
             "body": json.dumps({"error": "No query provided"})
         }
 
-    # -------------------------------
-    # 🔥 1. Detectar intención con IA
-    # -------------------------------
+
+    #1. Detectar intención con IA
+  
     intent_data = detect_intent_and_entities(user_query)
 
     intent = intent_data.get("intent")
     home = intent_data.get("home")
     away = intent_data.get("away")
 
-    # -------------------------------
-    # 🔵 2. Predicción ML
-    # -------------------------------
+    # 2. Predicción ML
+   
     if intent == "prediction" and home and away:
         
         try:
@@ -53,11 +53,14 @@ def lambda_handler(event, context):
                 }
             }
 
+            answer_prediction = generate_prediction_explanation(result_clean, user_query)
+
             return {
                 "statusCode": 200,
                 "body": json.dumps({
                     "type": "prediction",
-                    "data": result_clean
+                    "raw": result_clean,
+                    "data": answer_prediction
                 })
             }
 
@@ -67,9 +70,7 @@ def lambda_handler(event, context):
                 "body": json.dumps({"error": str(e)})
             }
 
-    # -------------------------------
-    # 🟢 3. RAG (fallback)
-    # -------------------------------
+    # 3. RAG (fallback)
     fragments = query_kb(KNOWLEDGE_BASE_ID, user_query)
 
     if not fragments:
