@@ -8,13 +8,15 @@ import pandas as pd
 
 s3 = boto3.client("s3")
 BUCKET = os.getenv("MY_BUCKET_NAME")
+GUARD_ID = os.getenv("MY_GUARD_ID")
+GUARD_VER_ID = os.getenv("MY_GUARD_VER_ID")
 KEY = "data/ranking_fifa.csv"
 region = os.getenv("MY_REG_AWS", "us-east-2")
 
 kb_client = boto3.client("bedrock-agent-runtime", region_name=region)
 model_client = boto3.client("bedrock-runtime", region_name=region)
 
-# ALIAS MULTIIDIOMA
+# alias paises español/inglés
 ALIASES = {
     "brasil": "brazil",
     "alemania": "germany",
@@ -114,6 +116,8 @@ Pregunta: {user_query}
 
     response = model_client.invoke_model(
         modelId=model_id,
+        guardrailIdentifier=GUARD_ID,
+        guardrailVersion=GUARD_VER_ID,
         contentType="application/json",
         body=json.dumps(body)
     )
@@ -144,15 +148,18 @@ Consulta: "{user_query}"
 
     response = model_client.invoke_model(
         modelId=model_id,
+        guardrailIdentifier=GUARD_ID,
+        guardrailVersion=GUARD_VER_ID,
         contentType="application/json",
         body=json.dumps(body)
     )
-
+    #print("resultado : result: ", response)
     result = json.loads(response["body"].read())
+    #print("the result: ", result)
     text = result["output"]["message"]["content"][0]["text"]
 
     # DEBUG
-    print("RAW LLM:", text)
+    #print("RAW LLM:", text)
 
     try:
         text = text.strip()
@@ -161,28 +168,35 @@ Consulta: "{user_query}"
             text = text.replace("```json", "").replace("```", "").strip()
 
         parsed = json.loads(text)
-        print("PARSED:", parsed)
+        #print("PARSED:", parsed)
     except:
-        print("JSON ERROR")
-        return {"intent": "rag", "home": None, "away": None}
+        #print("❌ JSON ERROR")
+
+        if result["amazon-bedrock-guardrailAction"] == "INTERVENED":
+            return {"intent": "INTERVENED", "home": None, "away": None}
+        else:
+            return {"intent": "rag", "home": None, "away": None}
 
     intent = parsed.get("intent")
     home = parsed.get("home")
     away = parsed.get("away")
 
-    print("INTENT:", intent)
-    print("HOME RAW:", home)
-    print("AWAY RAW:", away)
+    #print("INTENT:", intent)
+    #print("HOME RAW:", home)
+    #print("AWAY RAW:", away)
 
     home_valid = normalize_team(home)
     away_valid = normalize_team(away)
 
-    print("HOME VALID:", home_valid)
-    print("AWAY VALID:", away_valid)
+    #print("HOME VALID:", home_valid)
+    #print("AWAY VALID:", away_valid)
 
+    if result["amazon-bedrock-guardrailAction"] == "INTERVENED":
+        return {"intent": "INTERVENED", "home": None, "away": None}
+    
     if intent == "prediction":
         if not home_valid or not away_valid:
-            print("FALLÓ VALIDACIÓN RAG")
+            #print("FALLÓ VALIDACIÓN")
             return {"intent": "rag", "home": None, "away": None}
 
         return {
@@ -216,6 +230,8 @@ Pregunta: {user_query}
 
     response = model_client.invoke_model(
         modelId=model_id,
+        guardrailIdentifier=GUARD_ID,
+        guardrailVersion=GUARD_VER_ID,
         contentType="application/json",
         body=json.dumps(body)
     )
