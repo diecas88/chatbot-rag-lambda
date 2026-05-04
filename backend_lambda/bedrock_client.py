@@ -104,6 +104,9 @@ def generate_answer_from_fragments(fragments, user_query, model_id=None):
     prompt = f"""
 Usa la siguiente información para responder en español:
 
+- Importante! responde solo a las preguntas que tengan información relacionada con Fútbol, soccer, partidos de la FIFA, si es una información diferente solo responde "No es posible responder este tipo de preguntas"
+- El tema es solo de Fútbol todo lo demas descartalo y no respondas , solo dí "No es posible responder este tipo de preguntas"
+
 {''.join(fragments)}
 
 Pregunta: {user_query}
@@ -132,8 +135,10 @@ def detect_intent_and_entities(user_query):
     prompt = f"""
 Responde SOLO en JSON válido:
 
+- si hay temas que no esten relacionados con Fútbol , soccer , FIFA , estadisticas o predicciones descarta la pregunta marca el intent como INTERVENED y responde que el modelo no puede responder ese tipo de preguntas.
+
 {{
-  "intent": "prediction" | "rag",
+  "intent": "prediction" | "rag | INTERVENED",
   "home": string | null,
   "away": string | null
 }}

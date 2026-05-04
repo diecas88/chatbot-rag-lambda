@@ -4,6 +4,9 @@
 
 Este proyecto tiene como objetivo desarrollar un chatbot de "Retrieval Augmented Generation" (RAG) que pueda responder preguntas relacionadas con los mundiales de fútbol. Utiliza una arquitectura serverless con AWS Lambda y aprovecha AWS Bedrock para las capacidades de generación de lenguaje natural. La base de conocimiento del chatbot se construye a partir de datos históricos de los mundiales de fútbol, permitiéndole ofrecer respuestas informadas y contextualizadas.
 
+## Arquitectura
+![Arquitectura del proyecto](chatbot-rag-prediction.png)
+
 ## Estructura del Proyecto
 
 El repositorio está organizado de la siguiente manera:
