@@ -158,13 +158,12 @@ Consulta: "{user_query}"
         contentType="application/json",
         body=json.dumps(body)
     )
-    #print("resultado : result: ", response)
+    
     result = json.loads(response["body"].read())
-    #print("the result: ", result)
+    
     text = result["output"]["message"]["content"][0]["text"]
 
-    # DEBUG
-    #print("RAW LLM:", text)
+    
 
     try:
         text = text.strip()
@@ -173,9 +172,9 @@ Consulta: "{user_query}"
             text = text.replace("```json", "").replace("```", "").strip()
 
         parsed = json.loads(text)
-        #print("PARSED:", parsed)
+        
     except:
-        #print("❌ JSON ERROR")
+        
 
         if result["amazon-bedrock-guardrailAction"] == "INTERVENED":
             return {"intent": "INTERVENED", "home": None, "away": None}

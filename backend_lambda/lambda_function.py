@@ -84,7 +84,6 @@ def lambda_handler(event, context):
                 })
 
             except Exception as e:
-                print("❌ ERROR PREDICTION:", str(e))
                 return response(500, {"error": str(e)})
 
         # Guardrails - aws - bedrock

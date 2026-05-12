@@ -3,7 +3,7 @@ import sys
 import os
 import json
 
-# 👉 Agrega la raíz del proyecto al path
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from backend_lambda.lambda_function import lambda_handler

@@ -30,16 +30,13 @@ def load_csv(bucket, key):
 model_clf = load_model(BUCKET, "model/model_clf.pkl")
 model_reg = load_model(BUCKET, "model/model_reg.pkl")
 
-# carga data
-# ranking_df = pd.read_csv("ranking_fifa.csv") # ranking fifa 2026 abril
-# ranking_df = pd.read_csv("../data/ranking_fifa.csv") # ranking fifa 2026 abril
+
 
 ranking_df = load_csv(BUCKET, "data/ranking_fifa.csv")
 
 ranking_dict = dict(zip(ranking_df["country"], ranking_df["rank"]))
 
-#df_hist = pd.read_csv("clean_data.csv") # datos limpios
-# df_hist = pd.read_csv("../data/clean_data.csv") # datos limpios
+
 df_hist = load_csv(BUCKET, "data/clean_data.csv")
 
 # funcion para obtener goles anotados y goles recibidos, solo toma los ultimos 5 partidos jugados por colombia
