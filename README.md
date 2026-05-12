@@ -40,7 +40,7 @@ Para poner en marcha el proyecto en tu entorno local, sigue los siguientes pasos
 
 1.  **Clonar el repositorio:**
     ```bash
-    git clone https://github.com/tu-usuario/chatbot-rag.git
+    git clone <repositrio>
     cd chatbot-rag
     ```
 
@@ -57,16 +57,6 @@ Para poner en marcha el proyecto en tu entorno local, sigue los siguientes pasos
     Dirígete al directorio `notebooks/` para entender cómo construir la base de conocimiento y cómo desplegar la imagen en ECR.
     ```bash
     jupyter notebook
-    ```
-
-4.  **Ejecutar pruebas (opcional):**
-    Para asegurarte de que la lógica de negocio funciona correctamente, puedes ejecutar las pruebas:
-    ```bash
-    make test
-    ```
-    O directamente con `pytest`:
-    ```bash
-    pytest tests/
     ```
 
 ## Uso
@@ -92,7 +82,7 @@ Suponiendo que tu función Lambda está desplegada y accesible a través de un A
 
 ```json
 {
-    "question": "¿Quién ganó el Mundial de 2014?"
+    "query": "¿Quién ganó el Mundial de 2014?"
 }
 ```
 
@@ -110,7 +100,7 @@ Suponiendo que tu función Lambda está desplegada y accesible a través de un A
 
 ```json
 {
-    "question": "¿Cuál fue el resultado del partido entre Brasil y Alemania en 2014?"
+    "query": "¿Cuál fue el resultado del partido entre Brasil y Alemania en 2014?"
 }
 ```
 
